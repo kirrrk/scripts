@@ -27,6 +27,13 @@
 #       Then check the output of 'ssh-add -l' for your key.
 #       And check the output of 'ssh -Q key' for 'ssh-rsa'.
 #
+# To make your life easier, add the following to your ~/.ssh/config file:
+#
+# Host *.drush.in
+#	BatchMode yes
+#
+# This will cause terminus to error out when presented with a password prompt rather than waiting for your input.
+#
 
 check_terminus_output () {
   SITE_NAME=$1
