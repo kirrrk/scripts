@@ -33,14 +33,22 @@ check_terminus_output () {
   SITE_ENV=$2
   TERMINUS_OUTPUT=$3
   
+  # Checks the terminus output file for "Permission denied (password,publickey).
   if grep -q "Permission denied (password,publickey)" $TERMINUS_OUTPUT; then
     echo
     echo "Permission denied (password,publickey) error encountered."
+    
+    # Retrieve the site ID and SFTP username to use to get the list of appservers and test the ssh connection.
     SITE_ID=`terminus site:info --format list --field id -- $SITE_NAME`
     SFTP_USERNAME=`terminus connection:info --format list --field sftp_username $SITE_NAME.$SITE_ENV`
 
+    # Use dig to get the list of appservers and then try connecting to each one.
     dig +short -4 appserver.$SITE_ENV.$SITE_ID.drush.in | while read APPSERVER; do
       echo
+
+      # Test ssh connection to appservers to see whether or not the ssh key authentication is working.
+      # The ssh command will return "shell request failed" if it IS working.
+      # Authentication is not working if a permission denied error is returned.
       echo "Testing connection to appserver: $APPSERVER"
       ssh_output=$( ssh -T -n -oStrictHostKeyChecking=no -oBatchMode=yes -p 2222 $SFTP_USERNAME@$APPSERVER 2>&1)
 
@@ -50,10 +58,15 @@ check_terminus_output () {
         echo "$APPSERVER connection attempted returned:"
         echo $ssh_output
       fi
+
     done
     echo 
+
+    # Return in case error is found.
     return
   fi
+
+  # Return false in case error was not found in output file.
   false
 }
 
