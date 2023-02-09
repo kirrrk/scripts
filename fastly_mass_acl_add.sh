@@ -52,7 +52,7 @@ fi
 
 if [[ ! -f $INPUT_FILE ]]; then
   echo "Input file not found."
-  exit
+  exit 1
 else
 
   # Check to see if the input file contains more than 1000 lines.
@@ -74,7 +74,7 @@ TOKEN_CHECK=`curl -s "https://api.fastly.com/current_customer" -H "Fastly-Key: $
 
 if [[ $TOKEN_CHECK == "" ]] ; then
   echo "Fastly API token invalid."
-  exit
+  exit 1
 fi
 
 # Loop through the input file.

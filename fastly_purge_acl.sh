@@ -36,7 +36,7 @@ TOKEN_CHECK=`curl -s "https://api.fastly.com/current_customer" -H "Fastly-Key: $
 
 if [[ $TOKEN_CHECK == "" ]] ; then
   echo "Fastly API token invalid."
-  exit
+  exit 1
 fi
 
 
