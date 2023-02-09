@@ -5,6 +5,7 @@
 # Usage:
 # fastly_mass_acl_add.sh FASTLY_API_TOKEN SERVICE_ID ACL_ID TICKET_NUMBER INPUT_FILE
 
+ACTION=POST
 
 # Checks for required input or prompts for it.
 
@@ -43,12 +44,27 @@ else
   read INPUT_FILE
 fi
 
+if [[ "$@" == *" -d"* ]]; then
+  ACTION=DELETE
+fi
+
 # Check to see if the input file exists.
 
 if [[ ! -f $INPUT_FILE ]]; then
   echo "Input file not found."
   exit
 else
+
+  # Check to see if the input file contains more than 1000 lines.
+  if [[ `cat $INPUT_FILE | wc -l` -gt 1000 ]] ; then
+    echo "Input file contains over 1000 entries. Fastly's ACLs have a maximum limit of 1000 entries. Do you want to continue? (y/n) "
+    CONTINUE="n"
+    read CONTINUE
+    if [ "$CONTINUE" != "y" ] ; then
+      exit
+    fi 
+  fi
+
   IPS=`cat $INPUT_FILE`
 fi
 
@@ -67,7 +83,14 @@ for ip in ${IPS[@]}; do
 
 # Verify the IP address is valid.
   if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    curl -s -H "Fastly-Key: $FASTLY_API_TOKEN" -X POST https://api.fastly.com/service/$SERVICE_ID/acl/$ACL_ID/entry -d "ip=$ip&negated=0&comment=$TICKET_NUMBER" 
+
+    if [[ $ACTION == "POST" ]] ; then 
+      curl -s -H "Fastly-Key: $FASTLY_API_TOKEN" -X $ACTION https://api.fastly.com/service/$SERVICE_ID/acl/$ACL_ID/entry -d "ip=$ip&negated=0&comment=$TICKET_NUMBER" 
+    elif
+      echo "Only creating entries has been implemented in this script. Exiting."
+      exit
+    fi
+
 else
     echo "Skipping invalid IP: $ip"
   fi
