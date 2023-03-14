@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This script takes a list of domains and outputs the subject and issuer of the certificate on the site.
-# Then it checks each of the Pantheon platform offsets for a certificate associated with that domain name and outputs the subject and issuer if it finds any.
+# Then it checks each of the Pantheon  offsets for a certificate associated with that domain name and outputs the subject and issuer if it finds any.
 # This will help determine whether a domain is using a custom certificate or Let's Encrypt on the platform behind another public-facing platform which is serving a different certificate to users.
 
 # Checks for required input or prompts for it.
