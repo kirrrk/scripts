@@ -31,7 +31,7 @@ check_terminus_output () {
   SITE_NAME=$1
   SITE_ENV=$2
   TERMINUS_OUTPUT=$3
-  
+  echo "==== [$SITE_NAME] TERMINUS_OUTPUT: $TERMINUS_OUTPUT ====="
   if grep -q "error" $TERMINUS_OUTPUT; then
     echo $SITE_NAME.$SITE_ENV >> fix-unfreeze-error-verbose.log
     echo $TERMINUS_OUTPUT >> fix-unfreeze-error-verbose.log
@@ -50,11 +50,15 @@ restore () {
   # If this happens, the script will skipt the rest of the restore attempts for the site as this will require manual intervention.
   # Check the fix-unfreeze-error.log file for a list of sites that are returning errors.
   echo -e "${GREEN}Restoring $SITE.dev${RESET}"
-  terminus --yes backup:restore -- $SITE.dev >> /tmp/terminus_out 2>&1
-  if check_terminus_output $SITE_NAME dev /tmp/terminus_out; then
+  termout=/tmp/terminus_out_$SITE
+  echo "==== [$SITE] termout: $termout ====="
+  terminus --yes backup:restore -- $SITE.dev >> $termout 2>&1
+  echo "===== [$SITE] entering check_terminus_output conditional ====="
+  if check_terminus_output $SITE dev $termout ; then
     echo $SITE >> fix-unfreeze-error.log
     echo -e "${RED}Restore failed on $SITE, likely due to missing codeserver. Logged in fix-unfreeze-error.log${RESET}"
   else 
+    echo "===== [$SITE] check_terminus_output ran successfully ====="
     # If the first restore attempt is successful, proceed with the rest.
     echo -e "${GREEN}Restoring $SITE.test${RESET}"
     terminus --yes --quiet backup:restore -- $SITE.test 
@@ -69,9 +73,13 @@ restore () {
 
     # Check the platform domains for each environment to look for a 200 response. If the environment is still returning an error code, it may require manual intervention.
     # Check the fix-unfreeze-badresponse.log for a list of sites.
-    sleep 60
+    echo "===== [$SITE] terminus commands completed, sleeping for 90 seconds ====="
+    sleep 90
+    echo "===== [$SITE] sleep finished ====="
     for env in {dev,test,live} ; do
+      echo "===== [$SITE] running curl to check response ====="
       response=`curl -I "https://$env-$SITE.pantheonsite.io/" 2> /dev/null | grep HTTP | cut -d" " -f2`
+      echo "===== [$SITE] response: $response ====="
       if [ $response != "200" ] ; then
         echo "https://$env-$SITE.pantheonsite.io" >> fix-unfreeze-badresponse.log
         echo -e "${RED}Bad response from https://$env-$SITE.pantheonsite.io ($response). Recorded in fix-unfreeze-badresponse.log${RESET}"
