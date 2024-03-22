@@ -22,8 +22,10 @@ fi
 
 SITES=`cat $INPUT_FILE`
 GREEN='\033[0;32m'
+BLUE='\033[0;34m'
 RED='\033[0;31m'
 RESET='\033[0;0m'
+LOGFILE=unfreeze-fix.log
 
 check_terminus_output () {
   # This function is here to check whether the first restore attempt for any given site returns an error.
@@ -31,10 +33,7 @@ check_terminus_output () {
   SITE_NAME=$1
   SITE_ENV=$2
   TERMINUS_OUTPUT=$3
-  echo "[$SITE_NAME] TERMINUS_OUTPUT: $TERMINUS_OUTPUT"
   if grep -q "error" $TERMINUS_OUTPUT; then
-    echo $SITE_NAME.$SITE_ENV >> fix-unfreeze-error-verbose.log
-    echo $TERMINUS_OUTPUT >> fix-unfreeze-error-verbose.log
     return
   fi
 
@@ -48,42 +47,40 @@ restore () {
 
   # For the first restore attempt on the dev environment, we are sending the output to a file so that we can check for errors in case a codeserver is not provisioned.
   # If this happens, the script will skipt the rest of the restore attempts for the site as this will require manual intervention.
-  # Check the fix-unfreeze-error.log file for a list of sites that are returning errors.
-  echo -e "${GREEN}[$SITE.dev] Restoring dev environment${RESET}"
+  # Check the $LOGFILE file for a list of sites that are returning errors.
+  echo -e "${BLUE}[$SITE.dev] Restoring dev environment${RESET}"
   termout=/tmp/terminus_out_$SITE
-  echo "[$SITE] termout: $termout"
   terminus --yes backup:restore -- $SITE.dev >> $termout 2>&1
-  echo "[$SITE] entering check_terminus_output conditional"
   if check_terminus_output $SITE dev $termout ; then
-    echo "[RESTORE_FAILED] $SITE" >> fix-unfreeze-error.log
-    echo -e "${RED}[$SITE] Restore failed, likely due to missing codeserver. Logged in fix-unfreeze-error.log${RESET}"
+    echo "[RESTORE_FAILED] $SITE" >> $LOGFILE
+    echo -e "${RED}[$SITE] Restore failed, likely due to missing codeserver. Logged in $LOGFILE${RESET}"
   else 
-    echo "[$SITE] check_terminus_output ran successfully"
     # If the first restore attempt is successful, proceed with the rest.
-    echo -e "${GREEN}[$SITE.test] Restoring${RESET}"
+    echo -e "${BLUE}[$SITE.test] Restoring${RESET}"
     terminus --yes --quiet backup:restore -- $SITE.test 
-    echo -e "${GREEN}[$SITE.live] Restoring${RESET}"
+    echo -e "${BLUE}[$SITE.live] Restoring${RESET}"
     terminus --yes --quiet backup:restore -- $SITE.live
-    echo -e "${GREEN}[$SITE.dev] Starting second restore${RESET}"
+    echo -e "${BLUE}[$SITE.dev] Starting second restore${RESET}"
     terminus --yes --quiet backup:restore -- $SITE.dev
-    echo -e "${GREEN}[$SITE.test] Starting second restore${RESET}"
+    echo -e "${BLUE}[$SITE.test] Starting second restore${RESET}"
     terminus --yes --quiet backup:restore -- $SITE.test
-    echo -e "${GREEN}[$SITE.live] Starting second restore${RESET}"
+    echo -e "${BLUE}[$SITE.live] Starting second restore${RESET}"
     terminus --yes --quiet backup:restore -- $SITE.live 
 
+    terminus --quiet env:clear-cache $SITE.dev
+    terminus --quiet env:clear-cache $SITE.test
+    terminus --quiet env:clear-cache $SITE.live
+
     # Check the platform domains for each environment to look for a 200 response. If the environment is still returning an error code, it may require manual intervention.
-    # Check the fix-unfreeze-badresponse.log for a list of sites.
-    echo "[$SITE] terminus commands completed, sleeping for 90 seconds"
-    sleep 90
-    echo "[$SITE] sleep finished"
+    # Check the $LOGFILE for a list of sites.
+    sleep 60
     for env in {dev,test,live} ; do
-      echo "[$SITE] running curl to check response"
       response=`curl -I "https://$env-$SITE.pantheonsite.io/" 2> /dev/null | grep HTTP | cut -d" " -f2`
-      echo "[$SITE] response: $response"
       if [ $response != "200" ] ; then
-        echo "[BAD_RESPONSE_$response] https://$env-$SITE.pantheonsite.io" >> fix-unfreeze-error.log
-        echo -e "${RED}[$SITE] Bad response from https://$env-$SITE.pantheonsite.io ($response). Recorded in fix-unfreeze-error.log${RESET}"
+        echo "[BAD_RESPONSE_$response] https://$env-$SITE.pantheonsite.io${RESET}" >> $LOGFILE
+        echo -e "${RED}[$SITE] Bad response from https://$env-$SITE.pantheonsite.io ($response). Recorded in $LOGFILE ${RESET}"
       else
+        echo "[SUCCESS] $SITE.$env" >> $LOGFILE
         echo -e "${GREEN}[$SITE] 200 response from https://$env-$SITE.pantheonsite.io${RESET}"
       fi
     done 
@@ -91,7 +88,23 @@ restore () {
 }
 
 # Loop through the input file and run the restore function in the background for each site so that we can restore multiple sites at once.
+increment=0
 for site in ${SITES[@]}; do
-  restore $site &
+
+  # Make sure fewer than 5 process are running to avoid overwhelming ygg.
+  while [[ 5 -lt "`ps | grep unfreeze-fix.sh | wc -l`" ]]; do
+    echo "Too many restores running. Waiting for processes to finish to avoid overwhelming ygg."
+    sleep 60
+  done
+
+  # Increment a counter and run the 5th restore in the foreground and reset counter to avoid overwhelming ygg.
+  if [[ 4 -gt $increment ]] ; then
+    ((increment++))
+    restore $site &
+  else
+    increment=0
+    restore $site
+  fi
+
 done
 
