@@ -55,7 +55,7 @@ restore () {
   terminus --yes backup:restore -- $SITE.dev >> $termout 2>&1
   echo "[$SITE] entering check_terminus_output conditional"
   if check_terminus_output $SITE dev $termout ; then
-    echo $SITE >> fix-unfreeze-error.log
+    echo "[RESTORE_FAILED] $SITE" >> fix-unfreeze-error.log
     echo -e "${RED}[$SITE] Restore failed, likely due to missing codeserver. Logged in fix-unfreeze-error.log${RESET}"
   else 
     echo "[$SITE] check_terminus_output ran successfully"
@@ -81,8 +81,8 @@ restore () {
       response=`curl -I "https://$env-$SITE.pantheonsite.io/" 2> /dev/null | grep HTTP | cut -d" " -f2`
       echo "[$SITE] response: $response"
       if [ $response != "200" ] ; then
-        echo "https://$env-$SITE.pantheonsite.io" >> fix-unfreeze-badresponse.log
-        echo -e "${RED}[$SITE] Bad response from https://$env-$SITE.pantheonsite.io ($response). Recorded in fix-unfreeze-badresponse.log${RESET}"
+        echo "[BAD_RESPONSE_$response] https://$env-$SITE.pantheonsite.io" >> fix-unfreeze-error.log
+        echo -e "${RED}[$SITE] Bad response from https://$env-$SITE.pantheonsite.io ($response). Recorded in fix-unfreeze-error.log${RESET}"
       else
         echo -e "${GREEN}[$SITE] 200 response from https://$env-$SITE.pantheonsite.io${RESET}"
       fi
