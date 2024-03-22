@@ -31,7 +31,7 @@ check_terminus_output () {
   SITE_NAME=$1
   SITE_ENV=$2
   TERMINUS_OUTPUT=$3
-  echo "==== [$SITE_NAME] TERMINUS_OUTPUT: $TERMINUS_OUTPUT ====="
+  echo "[$SITE_NAME] TERMINUS_OUTPUT: $TERMINUS_OUTPUT"
   if grep -q "error" $TERMINUS_OUTPUT; then
     echo $SITE_NAME.$SITE_ENV >> fix-unfreeze-error-verbose.log
     echo $TERMINUS_OUTPUT >> fix-unfreeze-error-verbose.log
@@ -49,42 +49,42 @@ restore () {
   # For the first restore attempt on the dev environment, we are sending the output to a file so that we can check for errors in case a codeserver is not provisioned.
   # If this happens, the script will skipt the rest of the restore attempts for the site as this will require manual intervention.
   # Check the fix-unfreeze-error.log file for a list of sites that are returning errors.
-  echo -e "${GREEN}Restoring $SITE.dev${RESET}"
+  echo -e "${GREEN}[$SITE.dev] Restoring dev environment${RESET}"
   termout=/tmp/terminus_out_$SITE
-  echo "==== [$SITE] termout: $termout ====="
+  echo "[$SITE] termout: $termout"
   terminus --yes backup:restore -- $SITE.dev >> $termout 2>&1
-  echo "===== [$SITE] entering check_terminus_output conditional ====="
+  echo "[$SITE] entering check_terminus_output conditional"
   if check_terminus_output $SITE dev $termout ; then
     echo $SITE >> fix-unfreeze-error.log
-    echo -e "${RED}Restore failed on $SITE, likely due to missing codeserver. Logged in fix-unfreeze-error.log${RESET}"
+    echo -e "${RED}[$SITE] Restore failed, likely due to missing codeserver. Logged in fix-unfreeze-error.log${RESET}"
   else 
-    echo "===== [$SITE] check_terminus_output ran successfully ====="
+    echo "[$SITE] check_terminus_output ran successfully"
     # If the first restore attempt is successful, proceed with the rest.
-    echo -e "${GREEN}Restoring $SITE.test${RESET}"
+    echo -e "${GREEN}[$SITE.test] Restoring${RESET}"
     terminus --yes --quiet backup:restore -- $SITE.test 
-    echo -e "${GREEN}Restoring $SITE.live${RESET}"
+    echo -e "${GREEN}[$SITE.live] Restoring${RESET}"
     terminus --yes --quiet backup:restore -- $SITE.live
-    echo -e "${GREEN}Starting second restore on $SITE.dev${RESET}"
+    echo -e "${GREEN}[$SITE.dev] Starting second restore${RESET}"
     terminus --yes --quiet backup:restore -- $SITE.dev
-    echo -e "${GREEN}Starting second restore on $SITE.test${RESET}"
+    echo -e "${GREEN}[$SITE.test] Starting second restore${RESET}"
     terminus --yes --quiet backup:restore -- $SITE.test
-    echo -e "${GREEN}Starting second restore on $SITE.live${RESET}"
+    echo -e "${GREEN}[$SITE.live] Starting second restore${RESET}"
     terminus --yes --quiet backup:restore -- $SITE.live 
 
     # Check the platform domains for each environment to look for a 200 response. If the environment is still returning an error code, it may require manual intervention.
     # Check the fix-unfreeze-badresponse.log for a list of sites.
-    echo "===== [$SITE] terminus commands completed, sleeping for 90 seconds ====="
+    echo "[$SITE] terminus commands completed, sleeping for 90 seconds"
     sleep 90
-    echo "===== [$SITE] sleep finished ====="
+    echo "[$SITE] sleep finished"
     for env in {dev,test,live} ; do
-      echo "===== [$SITE] running curl to check response ====="
+      echo "[$SITE] running curl to check response"
       response=`curl -I "https://$env-$SITE.pantheonsite.io/" 2> /dev/null | grep HTTP | cut -d" " -f2`
-      echo "===== [$SITE] response: $response ====="
+      echo "[$SITE] response: $response"
       if [ $response != "200" ] ; then
         echo "https://$env-$SITE.pantheonsite.io" >> fix-unfreeze-badresponse.log
-        echo -e "${RED}Bad response from https://$env-$SITE.pantheonsite.io ($response). Recorded in fix-unfreeze-badresponse.log${RESET}"
+        echo -e "${RED}[$SITE] Bad response from https://$env-$SITE.pantheonsite.io ($response). Recorded in fix-unfreeze-badresponse.log${RESET}"
       else
-        echo -e "${GREEN}200 response from https://$env-$SITE.pantheonsite.io${RESET}"
+        echo -e "${GREEN}[$SITE] 200 response from https://$env-$SITE.pantheonsite.io${RESET}"
       fi
     done 
   fi
