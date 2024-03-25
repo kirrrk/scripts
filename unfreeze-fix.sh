@@ -34,10 +34,12 @@ check_terminus_output () {
   SITE_ENV=$2
   TERMINUS_OUTPUT=$3
   if grep -q "error" $TERMINUS_OUTPUT; then
+    rm $TERMINUS_OUTPUT
     return
   fi
 
   # Return false in case error was not found in output file.
+  rm $TERMINUS_OUTPUT
   false
 }
 
@@ -91,8 +93,8 @@ restore () {
 increment=0
 for site in ${SITES[@]}; do
 
-  # Make sure fewer than 5 process are running to avoid overwhelming ygg.
-  while [[ 5 -lt "`ps | grep unfreeze-fix.sh | wc -l`" ]]; do
+  # Make sure fewer than 8 process are running to avoid overwhelming ygg.
+  while [[ 8 -lt "`ps | grep unfreeze-fix.sh | wc -l`" ]]; do
     echo "Too many restores running. Waiting for processes to finish to avoid overwhelming ygg."
     sleep 60
   done
